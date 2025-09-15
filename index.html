@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Low-Bandwidth Classroom</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: #0f172a;
+        color: #e2e8f0;
+      }
+      .container {
+        max-width: 900px;
+        margin: auto;
+        padding: 1.5rem;
+      }
+      .slide-display {
+        background-color: #1e293b;
+        border-radius: 0.75rem;
+        min-height: 250px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 5rem;
+        font-weight: bold;
+        transition: all 0.3s ease;
+        overflow: hidden;
+      }
+      .slide-display img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 0.5rem;
+      }
+    </style>
+  </head>
+  <body class="p-4 sm:p-8">
+    <div class="container bg-slate-800 rounded-2xl shadow-xl">
+      <header class="text-center mb-6">
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-white mb-2">
+          Low-Bandwidth Classroom
+        </h1>
+        <p class="text-slate-400">WebSocket Prototype</p>
+      </header>
+
+      <div id="roleSelection" class="text-center">
+        <h2 class="text-2xl font-bold mb-4">Choose Your Role</h2>
+        <div
+          class="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-8"
+        >
+          <button
+            id="teacherRoleBtn"
+            class="w-full sm:w-64 px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            I'm a Teacher
+          </button>
+          <button
+            id="studentRoleBtn"
+            class="w-full sm:w-64 px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          >
+            I'm a Student
+          </button>
+        </div>
+      </div>
+
+      <div id="teacherDashboard" class="hidden">
+        <div
+          id="status"
+          class="text-center mb-6 text-sm font-medium text-slate-400"
+        >
+          Disconnected.
+        </div>
+
+        <form id="createSessionForm" class="p-4 bg-slate-900 rounded-xl mb-6">
+          <h2 class="text-xl font-bold mb-4">Create New Session</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label
+                for="sessionName"
+                class="block text-sm font-medium text-slate-400 mb-1"
+                >Session Name</label
+              >
+              <input
+                type="text"
+                id="sessionName"
+                placeholder="e.g., AI Fundamentals"
+                class="w-full px-4 py-2 bg-slate-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label
+                for="sessionDate"
+                class="block text-sm font-medium text-slate-400 mb-1"
+                >Date</label
+              >
+              <input
+                type="date"
+                id="sessionDate"
+                class="w-full px-4 py-2 bg-slate-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label
+                for="sessionTime"
+                class="block text-sm font-medium text-slate-400 mb-1"
+                >Time</label
+              >
+              <input
+                type="time"
+                id="sessionTime"
+                class="w-full px-4 py-2 bg-slate-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label
+                for="sessionFile"
+                class="block text-sm font-medium text-slate-400 mb-1"
+                >Upload PPT (.pptx)</label
+              >
+              <input
+                type="file"
+                id="sessionFile"
+                accept=".pptx, .pdf"
+                multiple
+                class="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            id="createSessionBtn"
+            class="w-full mt-4 px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            Create & Schedule Session
+          </button>
+        </form>
+
+        <div class="mb-4">
+          <h2 class="text-2xl font-bold text-center">Scheduled Sessions</h2>
+        </div>
+        <div id="teacherSessionList" class="space-y-4"></div>
+      </div>
+
+      <div id="studentDashboard" class="hidden">
+        <p
+          id="studentStatus"
+          class="text-center mb-6 text-sm font-medium text-slate-400"
+        >
+          Disconnected.
+        </p>
+        <div
+          class="p-4 bg-slate-900 rounded-xl mb-6 flex justify-between items-center"
+        >
+          <h2 class="text-xl font-bold">Available Sessions</h2>
+          <button
+            id="refreshSessionsBtn"
+            class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm transition-colors duration-200"
+          >
+            Refresh
+          </button>
+        </div>
+
+        <div id="sessionList" class="space-y-4">
+          <p id="noSessionsMessage" class="text-center text-slate-500">
+            No sessions found. Click refresh to check.
+          </p>
+        </div>
+      </div>
+
+      <div id="studentView" class="hidden text-center">
+        <h2 class="text-xl font-bold my-4">
+          Live Session:
+          <span id="studentCurrentSessionId" class="text-emerald-400"></span>
+        </h2>
+        <div class="slide-display">
+          <span id="studentSlideDisplay">Waiting for teacher...</span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // --- Element Selectors ---
+      const roleSelectionEl = document.getElementById("roleSelection");
+      const teacherRoleBtn = document.getElementById("teacherRoleBtn");
+      const studentRoleBtn = document.getElementById("studentRoleBtn");
+
+      const teacherDashboardEl = document.getElementById("teacherDashboard");
+      const studentDashboardEl = document.getElementById("studentDashboard");
+
+      const statusEl = document.getElementById("status");
+      const studentStatusEl = document.getElementById("studentStatus");
+
+      const createSessionFormEl = document.getElementById("createSessionForm");
+      const sessionNameInput = document.getElementById("sessionName");
+      const sessionDateInput = document.getElementById("sessionDate");
+      const sessionTimeInput = document.getElementById("sessionTime");
+      const sessionFileInput = document.getElementById("sessionFile");
+      const createSessionBtn = document.getElementById("createSessionBtn");
+
+      const teacherSessionListEl =
+        document.getElementById("teacherSessionList");
+
+      const refreshSessionsBtn = document.getElementById("refreshSessionsBtn");
+      const sessionListEl = document.getElementById("sessionList");
+      const noSessionsMessageEl = document.getElementById("noSessionsMessage");
+      const studentViewEl = document.getElementById("studentView");
+      const studentSlideDisplayEl = document.getElementById(
+        "studentSlideDisplay"
+      );
+      const studentCurrentSessionIdEl = document.getElementById(
+        "studentCurrentSessionId"
+      );
+
+      let ws;
+      let isTeacher = false;
+      let currentSlide = 1;
+
+      // --- Utility Functions ---
+      function generateSessionId() {
+        return Math.random().toString(36).substring(2, 8).toUpperCase();
+      }
+
+      function updateSlideDisplay(
+        slideDisplayElement,
+        slide,
+        presentationName
+      ) {
+        const imageURL = `https://placehold.co/800x600/1E293B/E2E8F0?text=${encodeURIComponent(
+          presentationName
+        )}+-+Slide+${slide}`;
+        const imageHtml = `<img src="${imageURL}" alt="Slide ${slide}">`;
+        slideDisplayElement.innerHTML = imageHtml;
+      }
+
+      // --- Role Selection ---
+      teacherRoleBtn.addEventListener("click", () => {
+        roleSelectionEl.classList.add("hidden");
+        teacherDashboardEl.classList.remove("hidden");
+        isTeacher = true;
+
+        // ✅ FIX: Establish one stable WebSocket connection as soon as the teacher view loads.
+        if (!ws || ws.readyState === WebSocket.CLOSED) {
+          // Use a generic connection for the teacher, as the context is in the message.
+          ws = new WebSocket("ws://localhost:8080");
+
+          ws.onopen = () => {
+            statusEl.textContent = "Connected to server.";
+            statusEl.classList.remove("text-red-400");
+            statusEl.classList.add("text-green-400");
+          };
+
+          ws.onclose = () => {
+            statusEl.textContent = "Disconnected from server.";
+            statusEl.classList.remove("text-green-400");
+            statusEl.classList.add("text-red-400");
+          };
+
+          ws.onerror = (error) => {
+            console.error("WebSocket Error:", error);
+            statusEl.textContent = "Connection error.";
+          };
+        }
+      });
+
+      studentRoleBtn.addEventListener("click", () => {
+        roleSelectionEl.classList.add("hidden");
+        studentDashboardEl.classList.remove("hidden");
+        isTeacher = false;
+        refreshSessionsBtn.click();
+      });
+
+      // --- Teacher Logic ---
+      createSessionBtn.addEventListener("click", () => {
+        // ✅ FIX: This function is now much simpler. It no longer manages the connection.
+        // It just prepares and sends the message over the existing `ws` connection.
+
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          statusEl.textContent = "Not connected to the server. Please refresh.";
+          statusEl.classList.add("text-red-400");
+
+          return;
+        }
+
+        const sessionId = generateSessionId();
+        const sessionName = sessionNameInput.value.trim();
+        const sessionDate = sessionDateInput.value;
+        const sessionTime = sessionTimeInput.value;
+        const sessionFiles = sessionFileInput.files;
+
+        if (
+          !sessionName ||
+          !sessionDate ||
+          !sessionTime ||
+          sessionFiles.length === 0
+        ) {
+          statusEl.textContent =
+            "Please fill all session details and upload at least one file.";
+          statusEl.classList.add("text-red-400");
+          return;
+        }
+
+        const pptFileNames = Array.from(sessionFiles).map((file) => file.name);
+
+        const message = {
+          action: "createSession",
+          sessionId,
+          sessionName,
+          sessionDate,
+          sessionTime,
+          pptFileNames,
+          role: "teacher", // The message identifies the sender's role
+        };
+
+        ws.send(JSON.stringify(message));
+
+        // Client-side UI updates immediately for a responsive feel
+        addSessionCardToTeacherList(
+          sessionId,
+          sessionName,
+          sessionDate,
+          sessionTime,
+          pptFileNames
+        );
+        createSessionFormEl.reset();
+      });
+
+      function addSessionCardToTeacherList(
+        sessionId,
+        sessionName,
+        sessionDate,
+        sessionTime,
+        pptFileNames
+      ) {
+        const card = document.createElement("div");
+        card.className =
+          "session-card bg-slate-900 rounded-xl p-6 shadow-md border border-indigo-500";
+        card.dataset.sessionId = sessionId;
+        card.dataset.sessionName = sessionName;
+
+        // Create a formatted list of files for display
+        const fileListHtml = pptFileNames
+          .map((name) => `<li>${name}</li>`)
+          .join("");
+
+        card.innerHTML = `
+        <h3 class="text-xl font-bold mb-2 text-indigo-400">Session Scheduled: ${sessionId}</h3>
+        <p class="text-sm text-slate-400 mb-1">Name: ${sessionName}</p>
+        <p class="text-sm text-slate-400 mb-1">Date: ${sessionDate}</p>
+        <p class="text-sm text-slate-400 mb-1">Time: ${sessionTime}</p>
+        <div class="text-sm text-slate-400 mb-4">Files: <ul class="list-disc list-inside">${fileListHtml}</ul></div>
+        <button class="start-session-btn w-full mb-4 px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition-colors duration-200">Start Session</button>
+        <div class="teacher-view hidden text-center">
+            <div class="slide-display">
+                </div>
+            <div class="mt-6 flex justify-center space-x-4">
+                <button class="prev-btn px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-semibold">&larr; Previous</button>
+                <button class="next-btn px-6 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white font-semibold">Next &rarr;</button>
+            </div>
+        </div>
+    `;
+        teacherSessionListEl.appendChild(card);
+      }
+
+      // Use event delegation for all buttons within the session list
+      teacherSessionListEl.addEventListener("click", (e) => {
+        const card = e.target.closest(".session-card");
+        if (!card) return;
+
+        const sessionId = card.dataset.sessionId;
+        const sessionName = card.dataset.sessionName;
+        let slide = parseInt(card.dataset.slide || "1");
+
+        if (e.target.matches(".start-session-btn")) {
+          const message = {
+            action: "startSession",
+            role: "teacher",
+            sessionId,
+          };
+          ws.send(JSON.stringify(message));
+
+          e.target.classList.add("hidden"); // Hide start button
+          card.querySelector(".teacher-view").classList.remove("hidden"); // Show controls
+          const slideDisplay = card.querySelector(".slide-display");
+          updateSlideDisplay(slideDisplay, slide, sessionName);
+        }
+
+        if (e.target.matches(".next-btn")) {
+          slide++;
+          card.dataset.slide = slide;
+          const message = {
+            action: "slideChange",
+            role: "teacher",
+            sessionId,
+            slide,
+            presentation: sessionName,
+          };
+          ws.send(JSON.stringify(message));
+          const slideDisplay = card.querySelector(".slide-display");
+          updateSlideDisplay(slideDisplay, slide, sessionName);
+        }
+
+        if (e.target.matches(".prev-btn")) {
+          if (slide > 1) {
+            slide--;
+            card.dataset.slide = slide;
+            const message = {
+              action: "slideChange",
+              role: "teacher",
+              sessionId,
+              slide,
+              presentation: sessionName,
+            };
+            ws.send(JSON.stringify(message));
+            const slideDisplay = card.querySelector(".slide-display");
+            updateSlideDisplay(slideDisplay, slide, sessionName);
+          }
+        }
+      });
+
+      // --- Student Logic ---
+      // (This section remains largely the same)
+      refreshSessionsBtn.addEventListener("click", () => {
+        const listWs = new WebSocket("ws://localhost:8080?role=getSessions");
+        studentStatusEl.textContent = "Refreshing session list...";
+        listWs.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data);
+            if (message.action === "sessionList") {
+              renderSessionCards(message.sessions);
+              studentStatusEl.textContent = "Session list updated.";
+            }
+          } catch (e) {
+            console.error("Failed to parse session list:", e);
+          }
+        };
+      });
+
+      function renderSessionCards(sessions) {
+        sessionListEl.innerHTML = "";
+        const sessionEntries = Object.entries(sessions);
+        if (sessionEntries.length === 0) {
+          noSessionsMessageEl.classList.remove("hidden");
+          return;
+        }
+        noSessionsMessageEl.classList.add("hidden");
+        sessionEntries.sort(
+          ([, a], [, b]) =>
+            (a.status === "live" ? -1 : 1) - (b.status === "live" ? -1 : 1)
+        );
+        sessionEntries.forEach(([sessionId, session]) => {
+          const isLive = session.status === "live";
+          const card = document.createElement("div");
+          card.className = `bg-slate-900 rounded-xl p-4 shadow-md border ${
+            isLive ? "border-emerald-500" : "border-slate-600"
+          } flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4`;
+          const buttonHtml = isLive
+            ? `<button class="join-session-btn w-full sm:w-auto px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg" data-session-id="${sessionId}">Join Live Session</button>`
+            : `<div class="w-full sm:w-auto px-6 py-2 bg-slate-700 text-slate-400 font-bold rounded-lg text-center">Scheduled</div>`;
+          card.innerHTML = `<div class="flex-grow"><h3 class="text-lg font-bold ${
+            isLive ? "text-emerald-400" : "text-slate-400"
+          }">${
+            session.sessionName
+          }</h3><p class="text-sm text-slate-400">ID: ${sessionId}</p><p class="text-sm text-slate-500 mt-2">Date: ${
+            session.sessionDate
+          } at ${
+            session.sessionTime
+          }</p><p class="text-sm text-slate-500">File: ${
+            session.pptFileName
+          }</p></div>${buttonHtml}`;
+          sessionListEl.appendChild(card);
+        });
+        document
+          .querySelectorAll(".join-session-btn")
+          .forEach((button) =>
+            button.addEventListener("click", (e) =>
+              joinSession(e.target.dataset.sessionId)
+            )
+          );
+      }
+
+      function joinSession(sessionId) {
+        const wsUrl = `ws://localhost:8080?sessionId=${sessionId}&role=student`;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.close();
+        }
+        ws = new WebSocket(wsUrl);
+        ws.onopen = () => {
+          studentDashboardEl.classList.add("hidden");
+          studentViewEl.classList.remove("hidden");
+          studentCurrentSessionIdEl.textContent = sessionId;
+          ws.send(JSON.stringify({ action: "getInitialState" }));
+        };
+        ws.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data);
+            if (message.action === "slideChange" && message.presentation) {
+              updateSlideDisplay(
+                studentSlideDisplayEl,
+                message.slide,
+                message.presentation
+              );
+            }
+          } catch (e) {
+            console.error("Failed to parse message:", e);
+          }
+        };
+        ws.onclose = (event) => {
+          studentDashboardEl.classList.remove("hidden");
+          studentViewEl.classList.add("hidden");
+          studentStatusEl.textContent =
+            event.reason || `Disconnected from session.`;
+          studentStatusEl.classList.add("text-red-400");
+          refreshSessionsBtn.click();
+        };
+      }
+    </script>
+  </body>
+</html>

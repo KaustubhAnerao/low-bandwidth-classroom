@@ -3,3 +3,7 @@ node_modules/
 
 # Environment Variables - Do not commit secrets!
 .env
+
+#generated images
+public/
+uploads/

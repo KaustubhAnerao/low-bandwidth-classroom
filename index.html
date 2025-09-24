@@ -33,6 +33,14 @@
         height: auto;
         border-radius: 0.5rem;
       }
+      /* small helper for canvas full-fit */
+      .wb-canvas {
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+        border-radius: 0.5rem;
+        background: transparent;
+      }
     </style>
   </head>
   <body class="p-4 sm:p-8">
@@ -173,8 +181,17 @@
           Live Session:
           <span id="studentCurrentSessionId" class="text-emerald-400"></span>
         </h2>
-        <div class="slide-display">
+        <div class="slide-display" id="studentSlideWrapper" style="height:320px">
           <span id="studentSlideDisplay">Waiting for teacher...</span>
+        </div>
+
+        <!-- Chat area for students (appears while in live session) -->
+        <div id="studentChatContainer" class="hidden mt-4">
+          <div id="studentChatMessages" class="h-40 overflow-auto p-3 bg-slate-900 rounded-lg text-sm text-slate-300 text-left"></div>
+          <div class="mt-2 flex gap-2">
+            <input id="studentChatInput" class="flex-1 px-4 py-2 bg-slate-800 rounded-lg focus:outline-none" placeholder="Type a message..." />
+            <button id="studentSendChatBtn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg">Send</button>
+          </div>
         </div>
       </div>
     </div>
@@ -211,6 +228,12 @@
       const studentCurrentSessionIdEl = document.getElementById(
         "studentCurrentSessionId"
       );
+
+      const studentChatContainer = document.getElementById("studentChatContainer");
+      const studentChatMessages = document.getElementById("studentChatMessages");
+      const studentChatInput = document.getElementById("studentChatInput");
+      const studentSendChatBtn = document.getElementById("studentSendChatBtn");
+      const studentSlideWrapper = document.getElementById("studentSlideWrapper");
 
       let ws;
       let isTeacher = false;
@@ -259,6 +282,59 @@
           ws.onerror = (error) => {
             console.error("WebSocket Error:", error);
             statusEl.textContent = "Connection error.";
+          };
+
+          // Teacher can receive chat messages that are broadcast (so show in any relevant UI).
+          ws.onmessage = (event) => {
+            try {
+              const message = JSON.parse(event.data);
+              // handle chat at teacher-side UI: find relevant session card and append msg
+              if (message.action === "chatMessage" && message.sessionId) {
+                const card = document.querySelector(
+                  `.session-card[data-session-id="${message.sessionId}"]`
+                );
+                if (card) {
+                  const chatBox = card.querySelector(".chat-messages");
+                  if (chatBox) {
+                    appendChatMessageToBox(chatBox, message);
+                  }
+                }
+              }
+              // teacher can receive whiteboardToggle confirmations (for sync)
+              if (message.action === "whiteboardToggle" && message.sessionId) {
+                const card = document.querySelector(
+                  `.session-card[data-session-id="${message.sessionId}"]`
+                );
+                if (card) {
+                  handleLocalWhiteboardToggleUI(card, message.enabled);
+                }
+              }
+              if (message.action === "whiteboardClear" && message.sessionId) {
+                const card = document.querySelector(
+                  `.session-card[data-session-id="${message.sessionId}"]`
+                );
+                if (card) {
+                  const canvas = card.querySelector(".whiteboard-canvas");
+                  if (canvas) {
+                    const ctx = canvas.getContext("2d");
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                  }
+                }
+              }
+              if (message.action === "whiteboardStroke" && message.sessionId) {
+                const card = document.querySelector(
+                  `.session-card[data-session-id="${message.sessionId}"]`
+                );
+                if (card) {
+                  const canvas = card.querySelector(".whiteboard-canvas");
+                  if (canvas) {
+                    drawStrokeOnCanvas(canvas, message.stroke);
+                  }
+                }
+              }
+            } catch (e) {
+              console.error("Teacher ws message parse error:", e);
+            }
           };
         }
       });
@@ -351,11 +427,36 @@
         <div class="text-sm text-slate-400 mb-4">Files: <ul class="list-disc list-inside">${fileListHtml}</ul></div>
         <button class="start-session-btn w-full mb-4 px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition-colors duration-200">Start Session</button>
         <div class="teacher-view hidden text-center">
-            <div class="slide-display">
+            <div class="slide-display mb-4">
+            </div>
+            <div class="mt-6 flex flex-col sm:flex-row justify-center sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
+                <div class="flex gap-2">
+                  <button class="prev-btn px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-semibold">&larr; Previous</button>
+                  <button class="next-btn px-6 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white font-semibold">Next &rarr;</button>
                 </div>
-            <div class="mt-6 flex justify-center space-x-4">
-                <button class="prev-btn px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-semibold">&larr; Previous</button>
-                <button class="next-btn px-6 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white font-semibold">Next &rarr;</button>
+                <div>
+                  <button class="whiteboard-toggle-btn px-6 py-2 bg-amber-600 hover:bg-amber-700 rounded-lg text-white font-semibold">Open Whiteboard</button>
+                </div>
+            </div>
+
+            <!-- Whiteboard container (teacher only input) -->
+            <div class="whiteboard-container hidden mt-4 text-left">
+              <div class="slide-display" style="height:320px; position:relative;">
+                <canvas class="whiteboard-canvas" width="800" height="320"></canvas>
+              </div>
+              <div class="mt-3 flex gap-2 justify-center">
+                <button class="clear-whiteboard-btn px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg">Clear</button>
+                <button class="close-whiteboard-btn px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg">Close Whiteboard</button>
+              </div>
+            </div>
+
+            <!-- Chat inside the teacher card -->
+            <div class="chat-container mt-4 text-left">
+              <div class="chat-messages h-40 overflow-auto p-3 bg-slate-800 rounded-lg text-sm text-slate-300"></div>
+              <div class="mt-2 flex gap-2">
+                <input class="chat-input flex-1 px-4 py-2 bg-slate-700 rounded-lg focus:outline-none" placeholder="Type a message..." />
+                <button class="send-chat-btn px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white">Send</button>
+              </div>
             </div>
         </div>
     `;
@@ -416,7 +517,218 @@
             updateSlideDisplay(slideDisplay, slide, sessionName);
           }
         }
+
+        // === Whiteboard toggle ===
+        if (e.target.matches(".whiteboard-toggle-btn")) {
+          const wbContainer = card.querySelector(".whiteboard-container");
+          const isOpen = !wbContainer.classList.contains("hidden");
+          // toggle: if currently open => close; else open
+          if (!isOpen) {
+            // enable whiteboard
+            ws.send(JSON.stringify({
+              action: "whiteboardToggle",
+              role: "teacher",
+              sessionId,
+              enabled: true
+            }));
+            // UI: show container and disable slide controls
+            handleLocalWhiteboardToggleUI(card, true);
+            // attach drawing handlers
+            const canvas = card.querySelector(".whiteboard-canvas");
+            attachWhiteboardHandlers(canvas, sessionId, card);
+          } else {
+            // close whiteboard (disable)
+            ws.send(JSON.stringify({
+              action: "whiteboardToggle",
+              role: "teacher",
+              sessionId,
+              enabled: false
+            }));
+            handleLocalWhiteboardToggleUI(card, false);
+          }
+        }
+
+        // clear whiteboard (teacher)
+        if (e.target.matches(".clear-whiteboard-btn")) {
+          ws.send(JSON.stringify({
+            action: "whiteboardClear",
+            role: "teacher",
+            sessionId
+          }));
+          const canvas = card.querySelector(".whiteboard-canvas");
+          if (canvas) {
+            const ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+          }
+        }
+
+        if (e.target.matches(".close-whiteboard-btn")) {
+          // teacher closing local whiteboard UI: tell server to disable
+          ws.send(JSON.stringify({
+            action: "whiteboardToggle",
+            role: "teacher",
+            sessionId,
+            enabled: false
+          }));
+          handleLocalWhiteboardToggleUI(card, false);
+        }
+
+        // Teacher sending chat message
+        if (e.target.matches(".send-chat-btn")) {
+          const input = card.querySelector(".chat-input");
+          const text = input.value.trim();
+          if (!text) return;
+          const msg = {
+            action: "chatMessage",
+            sessionId,
+            role: "teacher",
+            text,
+          };
+          ws.send(JSON.stringify(msg));
+          input.value = "";
+          
+        }
       });
+
+      // helper: append chat message to chat box element
+      function appendChatMessageToBox(chatBox, message) {
+        const when = new Date(message.timestamp || Date.now()).toLocaleTimeString();
+        const role = message.senderRole || message.role || "unknown";
+        const el = document.createElement("div");
+        el.className = "mb-2";
+        el.innerHTML = `<span class="text-xs text-slate-400">[${when}]</span> <strong class="text-sm ml-1">${role}:</strong> <span class="ml-2 text-sm">${escapeHtml(message.text)}</span>`;
+        chatBox.appendChild(el);
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+
+      // prevent basic XSS in chat rendering
+      function escapeHtml(s) {
+        return (s + "").replace(/[&<>"'`]/g, (m) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+          "`": "&#96;"
+        }[m]));
+      }
+
+      // === Whiteboard drawing helpers ===
+      function attachWhiteboardHandlers(canvas, sessionId, card) {
+        if (!canvas) return;
+        // avoid reattaching
+        if (canvas._wbAttached) return;
+        canvas._wbAttached = true;
+
+        // ensure proper drawing scale
+        function resizeCanvasToDisplaySize() {
+          const rect = canvas.getBoundingClientRect();
+          const dpr = window.devicePixelRatio || 1;
+          const width = Math.round(rect.width * dpr);
+          const height = Math.round(rect.height * dpr);
+          if (canvas.width !== width || canvas.height !== height) {
+            canvas.width = width;
+            canvas.height = height;
+          }
+        }
+        resizeCanvasToDisplaySize();
+        window.addEventListener("resize", () => resizeCanvasToDisplaySize());
+
+        const ctx = canvas.getContext("2d");
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+
+        let drawing = false;
+        let currentStroke = [];
+
+        canvas.addEventListener("pointerdown", (ev) => {
+          ev.preventDefault();
+          drawing = true;
+          currentStroke = [];
+          const rect = canvas.getBoundingClientRect();
+          const x = (ev.clientX - rect.left) / rect.width;
+          const y = (ev.clientY - rect.top) / rect.height;
+          currentStroke.push([x, y]);
+        });
+
+        canvas.addEventListener("pointermove", (ev) => {
+          if (!drawing) return;
+          ev.preventDefault();
+          const rect = canvas.getBoundingClientRect();
+          const x = (ev.clientX - rect.left) / rect.width;
+          const y = (ev.clientY - rect.top) / rect.height;
+          currentStroke.push([x, y]);
+          // draw the latest segment immediately for teacher UI
+          drawStrokeOnCanvas(canvas, { points: currentStroke, color: "#E2E8F0", width: 2 });
+        });
+
+        function endStroke() {
+          if (!drawing) return;
+          drawing = false;
+          if (currentStroke.length > 0) {
+            // send the stroke to server normalized (points as ratios)
+            ws.send(JSON.stringify({
+              action: "whiteboardStroke",
+              role: "teacher",
+              sessionId,
+              stroke: { points: currentStroke, color: "#E2E8F0", width: 2 }
+            }));
+            currentStroke = [];
+          }
+        }
+
+        canvas.addEventListener("pointerup", endStroke);
+        canvas.addEventListener("pointercancel", endStroke);
+        canvas.addEventListener("pointerout", endStroke);
+        canvas.addEventListener("pointerleave", endStroke);
+      }
+
+      // draw stroke object {points:[[x,y],...], color, width} where x,y are normalized [0..1]
+      function drawStrokeOnCanvas(canvas, stroke) {
+        if (!canvas || !stroke || !stroke.points) return;
+        const ctx = canvas.getContext("2d");
+        // ensure scaling for hi-dpi
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.save();
+        ctx.strokeStyle = stroke.color || "#E2E8F0";
+        ctx.lineWidth = (stroke.width || 2) * dpr;
+        ctx.beginPath();
+        const pts = stroke.points;
+        for (let i = 0; i < pts.length; i++) {
+          const [nx, ny] = pts[i];
+          const x = Math.round(nx * w);
+          const y = Math.round(ny * h);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // When server indicates toggle, update teacher card UI
+      function handleLocalWhiteboardToggleUI(card, enabled) {
+        const wbContainer = card.querySelector(".whiteboard-container");
+        const slideDisp = card.querySelector(".slide-display");
+        const prevBtn = card.querySelector(".prev-btn");
+        const nextBtn = card.querySelector(".next-btn");
+        const wbToggleBtn = card.querySelector(".whiteboard-toggle-btn");
+        if (enabled) {
+          wbContainer.classList.remove("hidden");
+          slideDisp.classList.add("hidden");
+          if (prevBtn) prevBtn.disabled = true;
+          if (nextBtn) nextBtn.disabled = true;
+          if (wbToggleBtn) wbToggleBtn.classList.add("hidden");
+        } else {
+          wbContainer.classList.add("hidden");
+          slideDisp.classList.remove("hidden");
+          if (prevBtn) prevBtn.disabled = false;
+          if (nextBtn) nextBtn.disabled = false;
+          if (wbToggleBtn) wbToggleBtn.classList.remove("hidden");
+        }
+      }
 
       // --- Student Logic ---
       // (This section remains largely the same)
@@ -489,22 +801,80 @@
           studentDashboardEl.classList.add("hidden");
           studentViewEl.classList.remove("hidden");
           studentCurrentSessionIdEl.textContent = sessionId;
+          studentChatContainer.classList.remove("hidden");
+          studentChatMessages.innerHTML = "";
           ws.send(JSON.stringify({ action: "getInitialState" }));
         };
+
         ws.onmessage = (event) => {
           try {
             const message = JSON.parse(event.data);
+
+            // Slide changes
             if (message.action === "slideChange" && message.presentation) {
-              updateSlideDisplay(
-                studentSlideDisplayEl,
-                message.slide,
-                message.presentation
-              );
+              // only show slide if whiteboard isn't active
+              if (!message.whiteboardActive) {
+                studentSlideWrapper.innerHTML = `<div class="slide-display" id="studentSlideWrapInner" style="height:320px"></div>`;
+                const inner = document.getElementById("studentSlideWrapInner");
+                updateSlideDisplay(inner, message.slide, message.presentation);
+              }
+            }
+
+            // Whiteboard toggle on/off
+            if (message.action === "whiteboardToggle") {
+              if (message.enabled) {
+                // create canvas and show it
+                studentSlideWrapper.innerHTML = `<div class="slide-display" style="height:320px; position:relative;"><canvas id="studentWhiteboardCanvas" width="800" height="320" class="whiteboard-canvas"></canvas></div>`;
+                // students should not attach drawing handlers
+                const c = document.getElementById("studentWhiteboardCanvas");
+                // if server sent an initial state it will follow as whiteboardState messages
+              } else {
+                // restore slide - if server sent currentSlide use that; else request initial state
+                const slide = message.slide || 1;
+                const presentation = message.presentation || "Presentation";
+                studentSlideWrapper.innerHTML = `<div class="slide-display" id="studentSlideWrapInner" style="height:320px"></div>`;
+                const inner = document.getElementById("studentSlideWrapInner");
+                updateSlideDisplay(inner, slide, presentation);
+              }
+            }
+
+            // whiteboard snapshot of strokes (on join)
+            if (message.action === "whiteboardState" && Array.isArray(message.strokes)) {
+              // ensure canvas exists
+              const c = document.getElementById("studentWhiteboardCanvas");
+              if (c) {
+                // draw all strokes
+                message.strokes.forEach((s) => drawStrokeOnCanvas(c, s));
+              }
+            }
+
+            // single stroke broadcast from teacher
+            if (message.action === "whiteboardStroke") {
+              const c = document.getElementById("studentWhiteboardCanvas");
+              if (c) {
+                drawStrokeOnCanvas(c, message.stroke);
+              }
+            }
+
+            // clear whiteboard
+            if (message.action === "whiteboardClear") {
+              const c = document.getElementById("studentWhiteboardCanvas");
+              if (c) {
+                const ctx = c.getContext("2d");
+                ctx.clearRect(0, 0, c.width, c.height);
+              }
+            }
+
+            // Chat messages
+            if (message.action === "chatMessage") {
+              // append to student chat
+              appendStudentChat(message);
             }
           } catch (e) {
             console.error("Failed to parse message:", e);
           }
         };
+
         ws.onclose = (event) => {
           studentDashboardEl.classList.remove("hidden");
           studentViewEl.classList.add("hidden");
@@ -513,6 +883,27 @@
           studentStatusEl.classList.add("text-red-400");
           refreshSessionsBtn.click();
         };
+      }
+
+      // Student sends chat
+      studentSendChatBtn.addEventListener("click", () => {
+        const txt = studentChatInput.value.trim();
+        if (!txt || !ws || ws.readyState !== WebSocket.OPEN) return;
+        const msg = { action: "chatMessage", role: "student", sessionId: studentCurrentSessionIdEl.textContent, text: txt };
+        ws.send(JSON.stringify(msg));
+        studentChatInput.value = "";
+        
+      });
+
+      function appendStudentChat(msg) {
+        if (!studentChatMessages) return;
+        const when = new Date(msg.timestamp || Date.now()).toLocaleTimeString();
+        const role = msg.senderRole || msg.role || "unknown";
+        const el = document.createElement("div");
+        el.className = "mb-2";
+        el.innerHTML = `<span class="text-xs text-slate-400">[${when}]</span> <strong class="text-sm ml-1">${role}:</strong> <span class="ml-2 text-sm">${escapeHtml(msg.text)}</span>`;
+        studentChatMessages.appendChild(el);
+        studentChatMessages.scrollTop = studentChatMessages.scrollHeight;
       }
     </script>
   </body>

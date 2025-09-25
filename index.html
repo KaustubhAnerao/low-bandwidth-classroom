@@ -4,15 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Low-Bandwidth Classroom</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn-tailwindcss.vercel.app/"></script>
     <style>
       body { font-family: "Inter", sans-serif; background-color: #0f172a; color: #e2e8f0; }
       .container { max-width: 900px; margin: auto; padding: 1.5rem; }
-      .slide-display { background-color: #1e293b; border-radius: 0.75rem; min-height: 400px; display: flex; justify-content: center; align-items: center; font-size: 1.5rem; font-weight: bold; transition: all 0.3s ease; overflow: hidden; }
+      .slide-display { background-color: #1e293b; border-radius: 0.75rem; min-height: 400px; display: flex; justify-content: center; align-items: center; font-size: 1.5rem; font-weight: bold; transition: all 0.3s ease; overflow: hidden; position: relative; }
       .slide-display img { max-width: 100%; max-height: 400px; height: auto; object-fit: contain; border-radius: 0.5rem; }
+      .wb-canvas { width: 100%; height: 100%; touch-action: none; border-radius: 0.5rem; background: transparent; position: absolute; top: 0; left: 0;}
     </style>
   </head>
-  <body class="p-4 sm-p-8">
+  <body class="p-4 sm:p-8">
     <div class="container bg-slate-800 rounded-2xl shadow-xl">
       <header class="text-center mb-6">
         <h1 class="text-3xl sm:text-4xl font-extrabold text-white mb-2">Low-Bandwidth Classroom</h1>
@@ -34,7 +35,7 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <div>
                     <label for="sessionName" class="block text-sm font-medium text-slate-400 mb-1">Session Name</label>
-                    <input type="text" id="sessionName" placeholder="e.g., AI Fundamentals" class="w-full px-4 py-2 bg-slate-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+                    <input type="text" id="sessionName" placeholder="e.g., AI Fundamentals" class="w-full px-4 py-2 bg-slate-700 text-white rounded-lg"/>
                 </div>
                 <div>
                     <label for="sessionFile" class="block text-sm font-medium text-slate-400 mb-1">Upload Presentation (.pdf)</label>
@@ -42,11 +43,11 @@
                 </div>
                 <div>
                     <label for="sessionDate" class="block text-sm font-medium text-slate-400 mb-1">Date</label>
-                    <input type="date" id="sessionDate" class="w-full px-4 py-2 bg-slate-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+                    <input type="date" id="sessionDate" class="w-full px-4 py-2 bg-slate-700 text-white rounded-lg"/>
                 </div>
                 <div>
                     <label for="sessionTime" class="block text-sm font-medium text-slate-400 mb-1">Time</label>
-                    <input type="time" id="sessionTime" class="w-full px-4 py-2 bg-slate-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+                    <input type="time" id="sessionTime" class="w-full px-4 py-2 bg-slate-700 text-white rounded-lg"/>
                 </div>
             </div>
             <button type="button" id="createSessionBtn" class="w-full mt-4 px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg">Create & Schedule Session</button>
@@ -57,7 +58,6 @@
          <div id="teacherSessionList" class="space-y-4"></div>
       </div>
       
-      <!-- STUDENT DASHBOARD & VIEW -->
       <div id="studentDashboard" class="hidden">
           <p id="studentStatus" class="text-center mb-6 text-sm font-medium text-slate-400">Disconnected.</p>
           <div class="p-4 bg-slate-900 rounded-xl mb-6 flex justify-between items-center">
@@ -71,11 +71,17 @@
 
       <div id="studentView" class="hidden text-center">
           <h2 class="text-xl font-bold my-4">Live Session: <span id="studentCurrentSessionId" class="text-emerald-400"></span></h2>
-          <div id="studentSlideDisplay" class="slide-display">
+          <div class="slide-display" id="studentContentWrapper">
               <span>Waiting for teacher...</span>
           </div>
+          <div id="studentChatContainer" class="hidden mt-4">
+            <div id="studentChatMessages" class="h-40 overflow-auto p-3 bg-slate-900 rounded-lg text-sm text-slate-300 text-left"></div>
+            <div class="mt-2 flex gap-2">
+              <input id="studentChatInput" class="flex-1 px-4 py-2 bg-slate-800 rounded-lg focus:outline-none" placeholder="Type a message..." />
+              <button id="studentSendChatBtn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg">Send</button>
+            </div>
+          </div>
       </div>
-      
     </div>
 
     <script>
@@ -83,7 +89,6 @@
       const roleSelectionEl = document.getElementById("roleSelection");
       const teacherRoleBtn = document.getElementById("teacherRoleBtn");
       const studentRoleBtn = document.getElementById("studentRoleBtn");
-
       const teacherDashboardEl = document.getElementById("teacherDashboard");
       const statusEl = document.getElementById("status");
       const createSessionFormEl = document.getElementById("createSessionForm");
@@ -93,20 +98,23 @@
       const sessionTimeInput = document.getElementById("sessionTime");
       const createSessionBtn = document.getElementById("createSessionBtn");
       const teacherSessionListEl = document.getElementById("teacherSessionList");
-
       const studentDashboardEl = document.getElementById("studentDashboard");
       const studentStatusEl = document.getElementById("studentStatus");
       const refreshSessionsBtn = document.getElementById("refreshSessionsBtn");
       const sessionListEl = document.getElementById("sessionList");
       const noSessionsMessageEl = document.getElementById("noSessionsMessage");
       const studentViewEl = document.getElementById("studentView");
-      const studentSlideDisplayEl = document.getElementById("studentSlideDisplay");
+      const studentContentWrapper = document.getElementById("studentContentWrapper");
       const studentCurrentSessionIdEl = document.getElementById("studentCurrentSessionId");
+      const studentChatContainer = document.getElementById("studentChatContainer");
+      const studentChatMessages = document.getElementById("studentChatMessages");
+      const studentChatInput = document.getElementById("studentChatInput");
+      const studentSendChatBtn = document.getElementById("studentSendChatBtn");
 
       let ws;
       let currentSessionIdForStudent = null;
 
-      // --- IndexedDB Management for Local Slide Storage ---
+      // --- IndexedDB Management ---
       const dbManager = {
         db: null,
         init() {
@@ -154,36 +162,36 @@
         }
       };
       
-      // --- UTILITY ---
+      // --- UTILITY Functions ---
       const generateSessionId = () => Math.random().toString(36).substring(2, 8).toUpperCase();
       
-      // ✅ FIX: Created two separate functions for displaying slides.
-      // This one is for TEACHERS - it loads directly from the server.
       const updateTeacherSlideDisplayFromServer = (el, slide, sessionId) => {
-        if (!sessionId || slide < 1) {
-            el.innerHTML = `<span>Waiting for content...</span>`;
-            return;
-        }
+        if (!sessionId || slide < 1) { el.innerHTML = `<span>Waiting...</span>`; return; }
         const imageURL = `http://localhost:8080/slides/${sessionId}/slide-${slide}.png`;
         el.innerHTML = `<img src="${imageURL}" alt="Slide ${slide}" onerror="this.onerror=null;this.innerHTML='<span>Image Not Found</span>';">`;
       };
       
-      // This one is for STUDENTS - it loads from local IndexedDB.
       const updateStudentSlideDisplayFromLocal = async (el, slide, sessionId, slideCount) => {
-        if (!sessionId || slide < 1 || (slideCount && slide > slideCount)) {
-            el.innerHTML = `<span>Waiting for content...</span>`;
-            return;
-        }
+        if (!sessionId || slide < 1 || (slideCount && slide > slideCount)) { el.innerHTML = `<span>Waiting...</span>`; return; }
         try {
             const imageBlob = await dbManager.getSlide(sessionId, slide);
             const objectURL = URL.createObjectURL(imageBlob);
             if (el.dataset.previousUrl) URL.revokeObjectURL(el.dataset.previousUrl);
-            el.innerHTML = `<img src="${objectURL}" alt="Slide ${slide}">`;
+            el.innerHTML = `<div id="studentSlideDisplay"><img src="${objectURL}" alt="Slide ${slide}"></div>`;
             el.dataset.previousUrl = objectURL;
-        } catch (error) {
-            console.error(error);
-            el.innerHTML = `<span>Could not load slide from local storage.</span>`;
-        }
+        } catch (error) { el.innerHTML = `<span>Slide not loaded.</span>`; }
+      };
+
+      const escapeHtml = (s) => (s + "").replace(/[&<>"'`]/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;", "`": "&#96;" }[m]));
+      
+      const appendChatMessageToBox = (chatBox, message) => {
+        const when = new Date(message.timestamp || Date.now()).toLocaleTimeString();
+        const role = message.senderRole || message.role || "unknown";
+        const el = document.createElement("div");
+        el.className = "mb-2";
+        el.innerHTML = `<span class="text-xs text-slate-400">[${when}]</span> <strong class="text-sm ml-1">${role}:</strong> <span class="ml-2 text-sm">${escapeHtml(message.text)}</span>`;
+        chatBox.appendChild(el);
+        chatBox.scrollTop = chatBox.scrollHeight;
       };
       
       // --- INITIAL ROLE SELECTION & CONNECTION ---
@@ -191,8 +199,30 @@
           roleSelectionEl.classList.add("hidden");
           teacherDashboardEl.classList.remove("hidden");
           ws = new WebSocket("ws://localhost:8080");
-          ws.onopen = () => { statusEl.textContent = "Connected to server."; statusEl.classList.add("text-green-400");};
-          ws.onclose = () => { statusEl.textContent = "Disconnected."; statusEl.classList.remove("text-green-400");};
+          ws.onopen = () => { statusEl.textContent = "Connected."; statusEl.classList.add("text-green-400"); };
+          ws.onclose = () => { statusEl.textContent = "Disconnected."; statusEl.classList.remove("text-green-400"); };
+          ws.onmessage = (event) => {
+             try {
+                const message = JSON.parse(event.data);
+                if (message.action === "chatMessage" && message.sessionId) {
+                  const card = document.querySelector(`.session-card[data-session-id="${message.sessionId}"]`);
+                  if (card) {
+                    const chatBox = card.querySelector(".chat-messages");
+                    if (chatBox) appendChatMessageToBox(chatBox, message);
+                  }
+                }
+                if (message.action === "whiteboardClear" && message.sessionId) {
+                    const card = document.querySelector(`.session-card[data-session-id="${message.sessionId}"]`);
+                    const canvas = card?.querySelector(".wb-canvas");
+                    if(canvas) canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+                }
+                if (message.action === "whiteboardStroke" && message.sessionId) {
+                    const card = document.querySelector(`.session-card[data-session-id="${message.sessionId}"]`);
+                    const canvas = card?.querySelector(".wb-canvas");
+                    if(canvas) drawStrokeOnCanvas(canvas, message.stroke);
+                }
+             } catch(e) { console.error("Teacher WS message error:", e)}
+          };
       });
 
       studentRoleBtn.addEventListener("click", () => {
@@ -210,9 +240,9 @@
         const sessionFile = sessionFileInput.files[0];
         const sessionDate = sessionDateInput.value;
         const sessionTime = sessionTimeInput.value;
-        if (!sessionName || !sessionFile || !sessionDate || !sessionTime) { statusEl.textContent = "Please fill all fields and upload a PDF file."; return; }
+        if (!sessionName || !sessionFile || !sessionDate || !sessionTime) { statusEl.textContent = "Please fill all fields."; return; }
         
-        statusEl.textContent = "Uploading and processing PDF... Please wait.";
+        statusEl.textContent = "Uploading...";
         const sessionId = generateSessionId();
         const formData = new FormData();
         formData.append("sessionFile", sessionFile);
@@ -230,7 +260,7 @@
           }));
           addSessionCardToTeacherList(sessionId, sessionName, [sessionFile.name], slideCount, sessionDate, sessionTime);
           createSessionFormEl.reset();
-          statusEl.textContent = "Session created successfully!";
+          statusEl.textContent = "Session created!";
         } catch (error) { statusEl.textContent = `Error: ${error.message}`; }
       });
 
@@ -246,14 +276,42 @@
           <p class="text-sm text-slate-400 mb-4">Files: ${files.join(', ')} (${slideCount} slides)</p>
           <button class="start-session-btn w-full mb-4 px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg">Start Session</button>
           <div class="teacher-view hidden text-center">
-            <div class="slide-display"><span>Presentation will appear here.</span></div>
-            <div class="mt-6 flex justify-center space-x-4">
-              <button class="prev-btn px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg">&larr; Prev</button>
-              <button class="next-btn px-6 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg">Next &rarr;</button>
+            <div class="slide-display mb-4"><span>Presentation will appear here.</span></div>
+            <div class="whiteboard-container hidden mt-4">
+                 <div class="slide-display" style="height:400px;">
+                    <canvas class="wb-canvas"></canvas>
+                 </div>
+                 <div class="mt-3 flex gap-2 justify-center">
+                    <button class="clear-whiteboard-btn px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg">Clear</button>
+                 </div>
+            </div>
+            <div class="mt-6 flex flex-col sm:flex-row justify-center items-center space-y-3 sm:space-y-0 sm:space-x-4">
+                <button class="prev-btn px-6 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg">&larr; Prev</button>
+                <button class="next-btn px-6 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg">Next &rarr;</button>
+                <button class="whiteboard-toggle-btn px-6 py-2 bg-amber-600 hover:bg-amber-700 rounded-lg">Toggle Whiteboard</button>
+            </div>
+            <div class="chat-container mt-4 text-left">
+              <div class="chat-messages h-40 overflow-auto p-3 bg-slate-800 rounded-lg text-sm"></div>
+              <div class="mt-2 flex gap-2">
+                <input class="chat-input flex-1 px-4 py-2 bg-slate-700 rounded-lg" placeholder="Type..." />
+                <button class="send-chat-btn px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg">Send</button>
+              </div>
             </div>
           </div>`;
         teacherSessionListEl.appendChild(card);
       };
+
+      function handleLocalWhiteboardToggleUI(card, enabled) {
+        const wbContainer = card.querySelector(".whiteboard-container");
+        const slideDisp = card.querySelector(".slide-display");
+        const prevBtn = card.querySelector(".prev-btn");
+        const nextBtn = card.querySelector(".next-btn");
+        
+        wbContainer.classList.toggle("hidden", !enabled);
+        slideDisp.classList.toggle("hidden", enabled);
+        if(prevBtn) prevBtn.disabled = enabled;
+        if(nextBtn) nextBtn.disabled = enabled;
+      }
 
       teacherSessionListEl.addEventListener("click", (e) => {
         const card = e.target.closest(".session-card");
@@ -262,7 +320,6 @@
         const slideCount = parseInt(card.dataset.slideCount);
         let slide = parseInt(card.dataset.slide || "1");
 
-        // ✅ FIX: Ensure teacher events call the correct display function.
         if (e.target.matches(".start-session-btn")) {
             ws.send(JSON.stringify({ action: "startSession", role: "teacher", sessionId }));
             e.target.classList.add("hidden");
@@ -275,12 +332,106 @@
             ws.send(JSON.stringify({ action: "slideChange", role: "teacher", sessionId, slide: newSlide }));
             updateTeacherSlideDisplayFromServer(card.querySelector(".slide-display"), newSlide, sessionId);
         };
+        if (e.target.matches(".next-btn")) changeSlide(Math.min(slide + 1, slideCount));
+        if (e.target.matches(".prev-btn")) changeSlide(Math.max(slide - 1, 1));
+
+        if (e.target.matches(".send-chat-btn")) {
+            const input = card.querySelector(".chat-input");
+            const text = input.value.trim();
+            if (!text) return;
+            const msg = { action: "chatMessage", sessionId, role: "teacher", text };
+            ws.send(JSON.stringify(msg));
+            appendChatMessageToBox(card.querySelector('.chat-messages'), { ...msg, senderRole: 'teacher', timestamp: Date.now() });
+            input.value = "";
+        }
+
+        if (e.target.matches(".whiteboard-toggle-btn")) {
+            const wbContainer = card.querySelector(".whiteboard-container");
+            const isWbActive = !wbContainer.classList.contains("hidden");
+            const enableWb = !isWbActive;
+            ws.send(JSON.stringify({ action: "whiteboardToggle", role: "teacher", sessionId, enabled: enableWb }));
+            handleLocalWhiteboardToggleUI(card, enableWb);
+            if (enableWb) {
+                const canvas = card.querySelector(".wb-canvas");
+                // ✅ FIX: Directly clear the teacher's own canvas for immediate feedback.
+                if (canvas) {
+                    canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+                }
+                attachWhiteboardHandlers(canvas, sessionId);
+            }
+        }
         
-        if (e.target.matches(".next-btn") && slide < slideCount) changeSlide(slide + 1);
-        if (e.target.matches(".prev-btn") && slide > 1) changeSlide(slide - 1);
+        if (e.target.matches(".clear-whiteboard-btn")) {
+            const canvas = card.querySelector(".wb-canvas");
+            if (canvas) {
+                canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
+                ws.send(JSON.stringify({ action: "whiteboardClear", role: "teacher", sessionId }));
+            }
+        }
       });
 
-      // --- STUDENT LOGIC with Pre-downloading ---
+      // --- Whiteboard Drawing Logic ---
+      function attachWhiteboardHandlers(canvas, sessionId) {
+        if (!canvas || canvas._wbAttached) return;
+        canvas._wbAttached = true;
+        
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = canvas.clientWidth * dpr;
+        canvas.height = canvas.clientHeight * dpr;
+
+        const ctx = canvas.getContext("2d");
+        ctx.lineCap = "round";
+        ctx.strokeStyle = "#FFFFFF";
+        ctx.lineWidth = 2 * dpr;
+        let drawing = false;
+        let currentStroke = [];
+
+        const startStroke = (e) => {
+            e.preventDefault(); drawing = true; currentStroke = [];
+            const { x, y } = getPoint(e, canvas);
+            currentStroke.push([x, y]);
+        };
+        const drawStroke = (e) => {
+            if (!drawing) return; e.preventDefault();
+            const { x, y } = getPoint(e, canvas);
+            currentStroke.push([x, y]);
+            drawStrokeOnCanvas(canvas, { points: currentStroke, color: '#FFFFFF', width: 2 });
+        };
+        const endStroke = () => {
+            if (!drawing) return; drawing = false;
+            if (currentStroke.length > 1) {
+                ws.send(JSON.stringify({ action: "whiteboardStroke", role: "teacher", sessionId, stroke: { points: currentStroke, color: '#FFFFFF', width: 2 } }));
+            }
+        };
+        const getPoint = (e, canvas) => {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return { x: (clientX - rect.left) / rect.width, y: (clientY - rect.top) / rect.height };
+        };
+
+        canvas.addEventListener("pointerdown", startStroke);
+        canvas.addEventListener("pointermove", drawStroke);
+        canvas.addEventListener("pointerup", endStroke);
+        canvas.addEventListener("pointerleave", endStroke);
+      }
+
+      function drawStrokeOnCanvas(canvas, stroke) {
+        if (!canvas || !stroke || !stroke.points || stroke.points.length < 2) return;
+        const ctx = canvas.getContext("2d");
+        const dpr = window.devicePixelRatio || 1;
+        ctx.strokeStyle = stroke.color || "#FFFFFF";
+        ctx.lineWidth = (stroke.width || 2) * dpr;
+        ctx.beginPath();
+        const pts = stroke.points;
+        ctx.moveTo(pts[0][0] * canvas.width, pts[0][1] * canvas.height);
+        for (let i = 1; i < pts.length; i++) {
+            ctx.lineTo(pts[i][0] * canvas.width, pts[i][1] * canvas.height);
+        }
+        ctx.stroke();
+      }
+
+      // --- STUDENT LOGIC ---
       refreshSessionsBtn.addEventListener("click", () => {
           const listWs = new WebSocket("ws://localhost:8080?role=getSessions");
           studentStatusEl.textContent = "Refreshing session list...";
@@ -300,7 +451,6 @@
           noSessionsMessageEl.classList.add("hidden");
           sessionEntries.forEach(async ([sessionId, session]) => {
               const card = document.createElement("div");
-              // ✅ FIX: Added the 'session-card' class to fix the download button bug.
               card.className = `session-card bg-slate-900 rounded-xl p-4 shadow-md border ${session.status === "live" ? "border-emerald-500" : "border-slate-600"} flex flex-col sm:flex-row items-start justify-between gap-4`;
               const isDownloaded = await dbManager.isSessionDownloaded(sessionId, session.slideCount);
               card.innerHTML = `
@@ -313,7 +463,7 @@
                     <div class="w-full text-right h-4"><span class="download-status text-xs text-slate-400"></span></div>
                     <button class="download-btn w-full px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-lg ${isDownloaded ? 'hidden' : ''}" data-session-id="${sessionId}" data-slide-count="${session.slideCount}">Download Materials</button>
                     ${session.status === 'live'
-                        ? `<button class="join-session-btn w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg disabled:bg-slate-600 disabled:cursor-not-allowed" data-session-id="${sessionId}" ${!isDownloaded ? 'disabled' : ''}>Join Live Session</button>`
+                        ? `<button class="join-session-btn w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg disabled:bg-slate-600" data-session-id="${sessionId}" ${!isDownloaded ? 'disabled' : ''}>Join</button>`
                         : `<div class="w-full px-4 py-2 bg-slate-700 text-slate-400 font-bold rounded-lg text-center">Scheduled ${isDownloaded ? '(Downloaded)' : ''}</div>`
                     }
                 </div>`;
@@ -335,27 +485,19 @@
           const card = button.closest('.session-card');
           const statusEl = card.querySelector('.download-status');
           const joinBtn = card.querySelector('.join-session-btn');
-          
           button.disabled = true;
-          statusEl.textContent = 'Starting download...';
+          statusEl.textContent = 'Downloading...';
           let downloadedCount = 0;
-
           for (let i = 1; i <= slideCount; i++) {
               try {
                   const response = await fetch(`http://localhost:8080/slides/${sessionId}/slide-${i}.png`);
-                  if (!response.ok) throw new Error(`Failed to fetch slide ${i}`);
                   const blob = await response.blob();
                   await dbManager.storeSlide(sessionId, i, blob);
                   downloadedCount++;
                   statusEl.textContent = `Downloading... (${downloadedCount}/${slideCount})`;
-              } catch (error) {
-                  statusEl.textContent = `Error: ${error.message}`;
-                  button.disabled = false;
-                  return;
-              }
+              } catch (error) { statusEl.textContent = `Error downloading.`; button.disabled = false; return; }
           }
-
-          statusEl.textContent = 'Download Complete!';
+          statusEl.textContent = 'Complete!';
           button.classList.add('hidden');
           if (joinBtn) joinBtn.disabled = false;
           const scheduledDiv = card.querySelector('.bg-slate-700');
@@ -367,14 +509,45 @@
         studentViewEl.classList.remove("hidden");
         studentCurrentSessionIdEl.textContent = sessionId;
         currentSessionIdForStudent = sessionId;
+        studentChatContainer.classList.remove("hidden");
+        studentChatMessages.innerHTML = "";
+        
         if (ws && ws.readyState === WebSocket.OPEN) { ws.close(); }
         ws = new WebSocket(`ws://localhost:8080?sessionId=${sessionId}&role=student`);
         ws.onopen = () => ws.send(JSON.stringify({ action: "getInitialState" }));
+        
         ws.onmessage = (event) => {
             const msg = JSON.parse(event.data);
             if (msg.action === "slideChange") {
-                // ✅ FIX: Ensure student view calls the correct display function.
-                updateStudentSlideDisplayFromLocal(studentSlideDisplayEl, msg.slide, currentSessionIdForStudent, msg.slideCount);
+                updateStudentSlideDisplayFromLocal(studentContentWrapper, msg.slide, currentSessionIdForStudent, msg.slideCount);
+            }
+            if (msg.action === "chatMessage") {
+                appendChatMessageToBox(studentChatMessages, msg);
+            }
+            if (msg.action === "whiteboardToggle") {
+                if (msg.enabled) {
+                    const canvas = document.createElement('canvas');
+                    canvas.className = 'wb-canvas';
+                    studentContentWrapper.innerHTML = '';
+                    studentContentWrapper.appendChild(canvas);
+                    const dpr = window.devicePixelRatio || 1;
+                    canvas.width = canvas.clientWidth * dpr;
+                    canvas.height = canvas.clientHeight * dpr;
+                } else {
+                    updateStudentSlideDisplayFromLocal(studentContentWrapper, msg.slide, currentSessionIdForStudent, msg.slideCount);
+                }
+            }
+            if (msg.action === "whiteboardState" && Array.isArray(msg.strokes)) {
+                const canvas = studentContentWrapper.querySelector(".wb-canvas");
+                if (canvas) msg.strokes.forEach(stroke => drawStrokeOnCanvas(canvas, stroke));
+            }
+            if (msg.action === "whiteboardStroke") {
+                const canvas = studentContentWrapper.querySelector(".wb-canvas");
+                if (canvas) drawStrokeOnCanvas(canvas, msg.stroke);
+            }
+            if (msg.action === "whiteboardClear") {
+                const canvas = studentContentWrapper.querySelector(".wb-canvas");
+                if (canvas) canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
             }
         };
         ws.onclose = () => {
@@ -383,6 +556,14 @@
             studentStatusEl.textContent = "Disconnected from session.";
         };
       };
+
+      studentSendChatBtn.addEventListener("click", () => {
+        const text = studentChatInput.value.trim();
+        if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+        ws.send(JSON.stringify({ action: "chatMessage", role: "student", sessionId: currentSessionIdForStudent, text }));
+        studentChatInput.value = "";
+      });
     </script>
   </body>
 </html>
+

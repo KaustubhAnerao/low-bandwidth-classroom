@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Low-Bandwidth Classroom</title>
+    <script src="https://cdn-tailwindcss.vercel.app/"></script>
+    <!-- ✅ FIX: Changed path to be relative to the HTML file -->
+    <link rel="stylesheet" href="css/style.css">
+  </head>
+  <body class="p-4 sm:p-8">
+    <div class="container bg-slate-800 rounded-2xl shadow-xl">
+      <header class="text-center mb-6">
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-white mb-2">Low-Bandwidth Classroom</h1>
+        <p class="text-slate-400">WebSocket + PDF Conversion Prototype</p>
+      </header>
+      
+      <!-- Role Selection -->
+      <div id="roleSelection" class="text-center">
+         <h2 class="text-2xl font-bold mb-4">Choose Your Role</h2>
+         <div class="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-8">
+            <button id="teacherRoleBtn" class="w-full sm:w-64 px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors duration-200">I'm a Teacher</button>
+            <button id="studentRoleBtn" class="w-full sm:w-64 px-8 py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-colors duration-200">I'm a Student</button>
+         </div>
+      </div>
+      
+      <!-- Teacher Dashboard -->
+      <div id="teacherDashboard" class="hidden">
+         <div id="status" class="text-center mb-6 text-sm font-medium text-slate-400">Disconnected.</div>
+         <form id="createSessionForm" class="p-4 bg-slate-900 rounded-xl mb-6">
+            <h2 class="text-xl font-bold mb-4">Create New Session</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label for="sessionName" class="block text-sm font-medium text-slate-400 mb-1">Session Name</label>
+                    <input type="text" id="sessionName" placeholder="e.g., AI Fundamentals" class="w-full px-4 py-2 bg-slate-700 text-white rounded-lg"/>
+                </div>
+                <div>
+                    <label for="sessionFile" class="block text-sm font-medium text-slate-400 mb-1">Upload Presentation (.pdf)</label>
+                    <input type="file" id="sessionFile" accept=".pdf" class="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"/>
+                </div>
+                <div>
+                    <label for="sessionDate" class="block text-sm font-medium text-slate-400 mb-1">Date</label>
+                    <input type="date" id="sessionDate" class="w-full px-4 py-2 bg-slate-700 text-white rounded-lg"/>
+                </div>
+                <div>
+                    <label for="sessionTime" class="block text-sm font-medium text-slate-400 mb-1">Time</label>
+                    <input type="time" id="sessionTime" class="w-full px-4 py-2 bg-slate-700 text-white rounded-lg"/>
+                </div>
+            </div>
+            <button type="button" id="createSessionBtn" class="w-full mt-4 px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg">Create & Schedule Session</button>
+         </form>
+         <div class="mb-4">
+             <h2 class="text-2xl font-bold text-center">Scheduled Sessions</h2>
+         </div>
+         <div id="teacherSessionList" class="space-y-4"></div>
+      </div>
+      
+      <!-- Student Dashboard -->
+      <div id="studentDashboard" class="hidden">
+          <p id="studentStatus" class="text-center mb-6 text-sm font-medium text-slate-400">Disconnected.</p>
+          <div class="p-4 bg-slate-900 rounded-xl mb-6 flex justify-between items-center">
+              <h2 class="text-xl font-bold">Available Sessions</h2>
+              <button id="refreshSessionsBtn" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm transition-colors duration-200">Refresh</button>
+          </div>
+          <div id="sessionList" class="space-y-4">
+              <p id="noSessionsMessage" class="text-center text-slate-500">No sessions found. Click refresh to check.</p>
+          </div>
+      </div>
+
+      <!-- Student Live Session View -->
+      <div id="studentView" class="hidden text-center">
+          <h2 class="text-xl font-bold my-4">Live Session: <span id="studentCurrentSessionId" class="text-emerald-400"></span></h2>
+          <div class="slide-display" id="studentContentWrapper">
+              <span>Waiting for teacher...</span>
+          </div>
+          <div id="studentChatContainer" class="hidden mt-4">
+            <div id="studentChatMessages" class="h-40 overflow-auto p-3 bg-slate-900 rounded-lg text-sm text-slate-300 text-left"></div>
+            <div class="mt-2 flex gap-2">
+              <input id="studentChatInput" class="flex-1 px-4 py-2 bg-slate-800 rounded-lg focus:outline-none" placeholder="Type a message..." />
+              <button id="studentSendChatBtn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg">Send</button>
+            </div>
+          </div>
+      </div>
+    </div>
+
+    <!-- ✅ FIX: Changed path to be relative to the HTML file -->
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>
+

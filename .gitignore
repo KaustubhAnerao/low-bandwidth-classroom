@@ -5,5 +5,5 @@ node_modules/
 .env
 
 #generated images
-public/
+public/slides/
 uploads/

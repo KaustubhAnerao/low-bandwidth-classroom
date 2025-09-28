@@ -1,4 +1,4 @@
-import dbManager from './db.js'; // ✅ FIX: Corrected import for default export
+import dbManager from './db.js';
 import * as ui from './ui.js';
 import * as wsManager from './websocket.js';
 import { attachWhiteboardHandlers } from './whiteboard.js';
@@ -48,7 +48,6 @@ domElements.studentRoleBtn.addEventListener("click", () => {
     domElements.roleSelectionEl.classList.add("hidden");
     domElements.studentDashboardEl.classList.remove("hidden");
     domElements.studentStatusEl.textContent = "Click Refresh to see available sessions.";
-    // ✅ FIX: The function call is now correct.
     dbManager.init();
 });
 
@@ -74,7 +73,8 @@ domElements.createSessionBtn.addEventListener("click", async (e) => {
     formData.append("sessionId", sessionId);
 
     try {
-        const response = await fetch("http://localhost:8080/upload", { method: "POST", body: formData });
+        // ✅ DEPLOY: Use the live Render URL for the file upload
+        const response = await fetch("https://low-bandwidth-classroom-backend.onrender.com/upload", { method: "POST", body: formData });
         const result = await response.json();
         if (!response.ok || !result.success) throw new Error(result.message || "File upload failed.");
 
@@ -149,7 +149,6 @@ domElements.teacherSessionListEl.addEventListener("click", (e) => {
 
 // 3. Student Dashboard
 domElements.refreshSessionsBtn.addEventListener("click", () => {
-    // ✅ FIX: Pass the domElements object so the function can access the UI.
     wsManager.refreshSessions(domElements);
 });
 
@@ -166,4 +165,3 @@ domElements.sessionListEl.addEventListener('click', (e) => {
 domElements.studentSendChatBtn.addEventListener("click", () => {
     wsManager.sendStudentChatMessage(ws, clientId, domElements);
 });
-

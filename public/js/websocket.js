@@ -3,11 +3,9 @@ import { drawStrokeOnCanvas } from './whiteboard.js';
 
 let currentSessionIdForStudent = null;
 
-// ✅ FIX: Removed the module-level domElements and initWebSocket function.
-// Functions now receive the domElements object directly as a parameter.
-
 export function connectTeacherSocket(clientId, domElements) {
-    const ws = new WebSocket(`ws://localhost:8080?clientId=${clientId}`);
+    // ✅ DEPLOY: Use the live, secure WebSocket URL (wss)
+    const ws = new WebSocket(`wss://low-bandwidth-classroom-backend.onrender.com?clientId=${clientId}`);
     ws.onopen = () => {
         domElements.statusEl.textContent = "Connected.";
         domElements.statusEl.classList.add("text-green-400");
@@ -46,7 +44,8 @@ export function connectTeacherSocket(clientId, domElements) {
 }
 
 export function refreshSessions(domElements) {
-    const listWs = new WebSocket(`ws://localhost:8080?role=getSessions`);
+    // ✅ DEPLOY: Use the live, secure WebSocket URL (wss)
+    const listWs = new WebSocket(`wss://low-bandwidth-classroom-backend.onrender.com?role=getSessions`);
     domElements.studentStatusEl.textContent = "Refreshing session list...";
     listWs.onmessage = (event) => {
         const message = JSON.parse(event.data);
@@ -65,7 +64,8 @@ export function joinSession(sessionId, clientId, domElements) {
     domElements.studentChatContainer.classList.remove("hidden");
     domElements.studentChatMessages.innerHTML = "";
 
-    const ws = new WebSocket(`ws://localhost:8080?sessionId=${sessionId}&role=student&clientId=${clientId}`);
+    // ✅ DEPLOY: Use the live, secure WebSocket URL (wss)
+    const ws = new WebSocket(`wss://low-bandwidth-classroom-backend.onrender.com?sessionId=${sessionId}&role=student&clientId=${clientId}`);
     ws.onopen = () => ws.send(JSON.stringify({ action: "getInitialState", clientId }));
     ws.onmessage = (event) => {
         const msg = JSON.parse(event.data);
@@ -118,4 +118,3 @@ export function sendStudentChatMessage(ws, clientId, domElements) {
     appendChatMessageToBox(domElements.studentChatMessages, { senderRole: 'student', text, timestamp: Date.now() });
     domElements.studentChatInput.value = "";
 }
-

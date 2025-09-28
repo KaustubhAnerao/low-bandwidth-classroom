@@ -6,8 +6,8 @@ export const generateClientId = () => Math.random().toString(36).substring(2, 12
 
 export const updateTeacherSlideDisplayFromServer = (el, slide, sessionId) => {
     if (!sessionId || slide < 1) { el.innerHTML = `<span>Waiting...</span>`; return; }
-    // ✅ FIX: Changed filename to 'slide-' to match the new library's output.
-    const imageURL = `http://localhost:8080/slides/${sessionId}/slide-${slide}.png`;
+    // ✅ DEPLOY: Use the live Render URL
+    const imageURL = `https://low-bandwidth-classroom-backend.onrender.com/slides/${sessionId}/slide-${slide}.png`;
     el.innerHTML = `<img src="${imageURL}" alt="Slide ${slide}" onerror="this.onerror=null;this.innerHTML='<span>Image Not Found</span>';">`;
 };
 
@@ -120,8 +120,8 @@ export async function downloadSession(sessionId, slideCount, button) {
     let downloadedCount = 0;
     for (let i = 1; i <= slideCount; i++) {
         try {
-            // ✅ FIX: Changed filename to 'slide-' to match the new library's output.
-            const response = await fetch(`http://localhost:8080/slides/${sessionId}/slide-${i}.png`);
+            // ✅ DEPLOY: Use the live Render URL
+            const response = await fetch(`https://low-bandwidth-classroom-backend.onrender.com/slides/${sessionId}/slide-${i}.png`);
             const blob = await response.blob();
             await dbManager.storeSlide(sessionId, i, blob);
             downloadedCount++;
@@ -134,3 +134,4 @@ export async function downloadSession(sessionId, slideCount, button) {
     const scheduledDiv = card.querySelector('.bg-slate-700');
     if (scheduledDiv) scheduledDiv.textContent = 'Scheduled (Downloaded)';
 }
+

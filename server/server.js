@@ -5,9 +5,10 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const cors = require("cors");
-const poppler = require("pdf-poppler");
 const mongoose = require("mongoose");
 const url = require("url");
+// ✅ FIX: Replaced all previous PDF libraries with node-poppler
+const { Poppler } = require("node-poppler");
 const connectDB = require("./config/db");
 const Session = require("./models/Session");
 
@@ -31,6 +32,7 @@ if (!fs.existsSync(slidesDir)) fs.mkdirSync(slidesDir, { recursive: true });
 // --- EXPRESS ROUTES ---
 app.get('/slides/:sessionId/:slideFile', (req, res) => {
     const { sessionId, slideFile } = req.params;
+    // ✅ FIX: Updated to match node-poppler's output format (e.g., slide-1.png)
     if (!slideFile.startsWith('slide-') || !slideFile.endsWith('.png')) {
         return res.status(400).send('Invalid file request.');
     }
@@ -60,25 +62,53 @@ app.post("/upload", upload.single("sessionFile"), async (req, res) => {
     fs.mkdirSync(outputDir, { recursive: true });
   }
   try {
-    const opts = { format: "png", out_dir: outputDir, out_prefix: "slide", page: null };
-    await poppler.convert(filePath, opts);
+    // ✅ FIX: Using node-poppler for conversion
+    const poppler = new Poppler();
+    const options = {
+        pngFile: true,
+        singleFile: false, // Create one PNG file per page
+    };
+    // The output prefix will be 'slide', creating 'slide-1.png', 'slide-2.png', etc.
+    const outputFile = path.join(outputDir, 'slide');
+
+    await poppler.pdfToCairo(filePath, outputFile, options);
+
     const files = fs.readdirSync(outputDir);
     const slideCount = files.filter((f) => f.endsWith(".png")).length;
-    fs.unlinkSync(filePath);
+    console.log(`✅ Converted PDF to ${slideCount} images for session ${sessionId}`);
+    
+    fs.unlinkSync(filePath); // Clean up temp file
     res.json({ success: true, slideCount });
+
   } catch (err) {
+    console.error("❌ PDF conversion error:", err);
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     res.status(500).json({ success: false, message: "Failed to process PDF." });
   }
 });
 
 // --- SERVER & WEBSOCKET INITIALIZATION ---
+// ... (The rest of your server.js file remains the same)
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 const liveSessions = new Map();
 const sessionStates = new Map();
 
-// ✅ FIX: This is the single, correct WebSocket connection handler.
+wss.on("connection", (ws, req) => {
+    const parameters = url.parse(req.url, true);
+    ws.sessionId = parameters.query.sessionId;
+    ws.role = parameters.query.role;
+    ws.clientId = parameters.query.clientId;
+
+    const handleConnection = async () => { /* ... existing handleConnection logic ... */ };
+    handleConnection();
+    ws.on("message", async (message) => { /* ... existing message handling logic ... */ });
+    ws.on("close", () => { /* ... existing close handling logic ... */ });
+});
+
+function broadcastToSession(sessionId, message) { /* ... existing broadcast logic ... */ }
+
+// Re-pasting the full logic for clarity
 wss.on("connection", (ws, req) => {
     const parameters = url.parse(req.url, true);
     ws.sessionId = parameters.query.sessionId;
@@ -116,9 +146,8 @@ wss.on("connection", (ws, req) => {
         const sessionId = ws.sessionId || data.sessionId;
         if (!sessionId) return;
         
-        // Teacher actions from the merged logic
         if (role === "teacher") {
-            if (data.action === "createSession") {
+             if (data.action === "createSession") {
                 const sessionData = {
                     sessionId: data.sessionId, sessionName: data.sessionName, sessionDate: data.sessionDate,
                     sessionTime: data.sessionTime, pptFileNames: data.pptFileNames, slideCount: data.slideCount,
@@ -157,9 +186,7 @@ wss.on("connection", (ws, req) => {
                     broadcastToSession(sessionId, { ...data, slideCount: session.slideCount });
                  }
             }
-        } 
-        // Student actions from the merged logic
-        else if (role === "student") {
+        } else if (role === "student") {
              if (data.action === "getInitialState") {
                 const session = await Session.findOne({ sessionId });
                 if (session && session.status === "live") {
@@ -185,23 +212,19 @@ wss.on("connection", (ws, req) => {
     });
 });
 
-// Helper function to broadcast messages
 function broadcastToSession(sessionId, message) {
     const sessionClients = liveSessions.get(sessionId);
     if (sessionClients) {
         const payload = JSON.stringify(message);
         sessionClients.forEach((client) => {
             if (client.readyState === WebSocket.OPEN) {
-                // The client-side will filter out its own messages using clientId
                 client.send(payload);
             }
         });
     }
 }
 
-// --- START SERVER ---
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
     console.log(`🚀 HTTP & WebSocket server is running on http://localhost:${PORT}`);
 });
-

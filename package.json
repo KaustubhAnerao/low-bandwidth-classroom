@@ -6,7 +6,7 @@
     "mongodb": "^6.19.0",
     "mongoose": "^8.18.1",
     "multer": "^2.0.2",
-    "pdf-poppler": "^0.2.1",
+    "node-poppler": "^8.0.4",
     "ws": "^8.18.3"
   },
   "scripts": {

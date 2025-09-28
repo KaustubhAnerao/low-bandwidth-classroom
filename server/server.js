@@ -200,7 +200,7 @@ function broadcastToSession(sessionId, message) {
 }
 
 // --- START SERVER ---
-const PORT = 8080;
+const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
     console.log(`🚀 HTTP & WebSocket server is running on http://localhost:${PORT}`);
 });

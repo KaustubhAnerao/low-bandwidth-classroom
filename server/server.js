@@ -5,14 +5,16 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const cors = require("cors");
+const { Poppler } = require("node-poppler");
 const mongoose = require("mongoose");
 const url = require("url");
-// ✅ FIX: Replaced all previous PDF libraries with node-poppler
-const { Poppler } = require("node-poppler");
 const connectDB = require("./config/db");
 const Session = require("./models/Session");
 
-require("dotenv").config();
+// ✅ FIX: Only load environment variables from .env file in non-production environments
+if (process.env.NODE_ENV !== 'production') {
+  require("dotenv").config();
+}
 
 // --- DATABASE CONNECTION ---
 connectDB();
@@ -32,7 +34,6 @@ if (!fs.existsSync(slidesDir)) fs.mkdirSync(slidesDir, { recursive: true });
 // --- EXPRESS ROUTES ---
 app.get('/slides/:sessionId/:slideFile', (req, res) => {
     const { sessionId, slideFile } = req.params;
-    // ✅ FIX: Updated to match node-poppler's output format (e.g., slide-1.png)
     if (!slideFile.startsWith('slide-') || !slideFile.endsWith('.png')) {
         return res.status(400).send('Invalid file request.');
     }
@@ -62,24 +63,18 @@ app.post("/upload", upload.single("sessionFile"), async (req, res) => {
     fs.mkdirSync(outputDir, { recursive: true });
   }
   try {
-    // ✅ FIX: Using node-poppler for conversion
     const poppler = new Poppler();
     const options = {
         pngFile: true,
-        singleFile: false, // Create one PNG file per page
+        singleFile: false,
     };
-    // The output prefix will be 'slide', creating 'slide-1.png', 'slide-2.png', etc.
     const outputFile = path.join(outputDir, 'slide');
-
     await poppler.pdfToCairo(filePath, outputFile, options);
-
     const files = fs.readdirSync(outputDir);
     const slideCount = files.filter((f) => f.endsWith(".png")).length;
     console.log(`✅ Converted PDF to ${slideCount} images for session ${sessionId}`);
-    
-    fs.unlinkSync(filePath); // Clean up temp file
+    fs.unlinkSync(filePath);
     res.json({ success: true, slideCount });
-
   } catch (err) {
     console.error("❌ PDF conversion error:", err);
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
@@ -88,7 +83,6 @@ app.post("/upload", upload.single("sessionFile"), async (req, res) => {
 });
 
 // --- SERVER & WEBSOCKET INITIALIZATION ---
-// ... (The rest of your server.js file remains the same)
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 const liveSessions = new Map();
@@ -102,11 +96,11 @@ wss.on("connection", (ws, req) => {
 
     const handleConnection = async () => { /* ... existing handleConnection logic ... */ };
     handleConnection();
+
     ws.on("message", async (message) => { /* ... existing message handling logic ... */ });
+
     ws.on("close", () => { /* ... existing close handling logic ... */ });
 });
-
-function broadcastToSession(sessionId, message) { /* ... existing broadcast logic ... */ }
 
 // Re-pasting the full logic for clarity
 wss.on("connection", (ws, req) => {

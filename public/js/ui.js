@@ -6,8 +6,9 @@ export const generateClientId = () => Math.random().toString(36).substring(2, 12
 
 export const updateTeacherSlideDisplayFromServer = (el, slide, sessionId) => {
     if (!sessionId || slide < 1) { el.innerHTML = `<span>Waiting...</span>`; return; }
-    // ✅ DEPLOY: Use the live Render URL
-    const imageURL = `https://low-bandwidth-classroom-backend.onrender.com/slides/${sessionId}/slide-${slide}.png`;
+    // ✅ FIX: Pad the slide number to two digits (e.g., 1 -> 01, 10 -> 10)
+    const paddedSlideNumber = String(slide).padStart(2, '0');
+    const imageURL = `https://low-bandwidth-classroom-backend.onrender.com/slides/${sessionId}/slide-${paddedSlideNumber}.png`; 
     el.innerHTML = `<img src="${imageURL}" alt="Slide ${slide}" onerror="this.onerror=null;this.innerHTML='<span>Image Not Found</span>';">`;
 };
 

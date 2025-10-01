@@ -70,9 +70,12 @@ app.post("/upload", upload.single("sessionFile"), async (req, res) => {
     };
     const outputFile = path.join(outputDir, 'slide');
     await poppler.pdfToCairo(filePath, outputFile, options);
+    // ✅ DEBUGGING: Read the contents of the output directory immediately after conversion.
     const files = fs.readdirSync(outputDir);
     const slideCount = files.filter((f) => f.endsWith(".png")).length;
     console.log(`✅ Converted PDF to ${slideCount} images for session ${sessionId}`);
+    // ✅ DEBUGGING: Log the exact list of files found on the server's disk.
+    console.log(`[DEBUG] Files found in ${outputDir}:`, files);
     fs.unlinkSync(filePath);
     res.json({ success: true, slideCount });
   } catch (err) {

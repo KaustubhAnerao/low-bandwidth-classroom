@@ -121,8 +121,9 @@ export async function downloadSession(sessionId, slideCount, button) {
     let downloadedCount = 0;
     for (let i = 1; i <= slideCount; i++) {
         try {
-            // ✅ DEPLOY: Use the live Render URL
-            const response = await fetch(`https://low-bandwidth-classroom-backend.onrender.com/slides/${sessionId}/slide-${i}.png`);
+            // ✅ FIX: Pad the slide number to two digits (e.g., 1 -> 01, 9 -> 09, 11 -> 11)
+            const paddedSlideNumber = String(i).padStart(2, '0');
+            const response = await fetch(`https://low-bandwidth-classroom-backend.onrender.com/slides/${sessionId}/slide-${paddedSlideNumber}.png`);
             const blob = await response.blob();
             await dbManager.storeSlide(sessionId, i, blob);
             downloadedCount++;
